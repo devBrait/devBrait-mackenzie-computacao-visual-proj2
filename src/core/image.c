@@ -73,6 +73,63 @@ void rgba_image_free(RgbaImage *image)
     image->height = 0;
 }
 
+bool rgba_image_limit_size(RgbaImage *image, int maxSide)
+{
+    int largestSide = image->width > image->height ? image->width : image->height;
+    if (largestSide <= maxSide) {
+        return true;
+    }
+
+    double scale = (double)maxSide / largestSide;
+    int width = (int)(image->width * scale + 0.5);
+    int height = (int)(image->height * scale + 0.5);
+    // Uma foto muito estreita não pode virar zero pixels
+    width = width < 1 ? 1 : width;
+    height = height < 1 ? 1 : height;
+
+    unsigned char *pixels = malloc((size_t)width * (size_t)height * RGBA_CHANNELS);
+    if (pixels == NULL) {
+        return false;
+    }
+
+    // Cada pixel novo é a média do bloco de pixels originais que ele cobre.
+    // Assim todo pixel original entra na conta e pontinhos não somem ao acaso
+    for (int y = 0; y < height; y++) {
+        int sourceTop = (int)((long long)y * image->height / height);
+        int sourceBottom = (int)((long long)(y + 1) * image->height / height);
+        for (int x = 0; x < width; x++) {
+            int sourceLeft = (int)((long long)x * image->width / width);
+            int sourceRight = (int)((long long)(x + 1) * image->width / width);
+
+            unsigned long sum[4] = {0, 0, 0, 0};
+            for (int sy = sourceTop; sy < sourceBottom; sy++) {
+                const unsigned char *pixel =
+                    image->pixels + ((size_t)sy * image->width + sourceLeft) * RGBA_CHANNELS;
+                for (int sx = sourceLeft; sx < sourceRight; sx++) {
+                    for (int c = 0; c < RGBA_CHANNELS; c++) {
+                        sum[c] += pixel[c];
+                    }
+                    pixel += RGBA_CHANNELS;
+                }
+            }
+
+            unsigned long count = (unsigned long)(sourceBottom - sourceTop) *
+                                  (unsigned long)(sourceRight - sourceLeft);
+            unsigned char *target = pixels + ((size_t)y * width + x) * RGBA_CHANNELS;
+            for (int c = 0; c < RGBA_CHANNELS; c++) {
+                target[c] = (unsigned char)((sum[c] + count / 2) / count);
+            }
+        }
+    }
+
+    // O stb libera com free, então o buffer novo pode seguir pelo mesmo caminho
+    stbi_image_free(image->pixels);
+    image->pixels = pixels;
+    image->width = width;
+    image->height = height;
+    return true;
+}
+
 const char *image_last_error(void)
 {
     const char *reason = stbi_failure_reason();

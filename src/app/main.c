@@ -8,6 +8,7 @@
 
 #include "app/app.h"
 #include "core/image.h"
+#include "core/params.h"
 #include "core/pipeline.h"
 
 static const char *WINDOW_TITLE = "Object Counter";
@@ -107,6 +108,14 @@ static void resize_display(AppState *state, int width, int height)
 // mantém a imagem anterior na tela
 static bool replace_image(AppState *state, RgbaImage *loaded)
 {
+    int originalWidth = loaded->width;
+    int originalHeight = loaded->height;
+    if (!rgba_image_limit_size(loaded, WORK_MAX_SIDE)) {
+        SDL_Log("Memória insuficiente para reduzir a imagem.");
+        rgba_image_free(loaded);
+        return false;
+    }
+
     Pipeline pipeline;
     if (!pipeline_process(&pipeline, loaded)) {
         SDL_Log("Memória insuficiente para processar a imagem.");
@@ -134,7 +143,8 @@ static bool replace_image(AppState *state, RgbaImage *loaded)
     state->image = *loaded;
 
     resize_display(state, state->image.width, state->image.height);
-    SDL_Log("Imagem carregada com %d x %d pixels", state->image.width, state->image.height);
+    SDL_Log("Imagem carregada com %d x %d pixels, processada em %d x %d", originalWidth,
+            originalHeight, state->image.width, state->image.height);
     return true;
 }
 

@@ -23,6 +23,10 @@ bool rgba_image_load_from_memory(RgbaImage *image, const unsigned char *data, si
 bool rgba_image_load_from_file(RgbaImage *image, const char *path);
 void rgba_image_free(RgbaImage *image);
 
+// Reduz a imagem no lugar até o lado maior caber em maxSide.
+// Imagens menores ficam como estão
+bool rgba_image_limit_size(RgbaImage *image, int maxSide);
+
 // Motivo da última falha de carregamento
 const char *image_last_error(void);
 
