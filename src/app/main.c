@@ -6,30 +6,74 @@
 
 #include <stdlib.h>
 
+#include "core/image.h"
+
 static const char *WINDOW_TITLE = "Object Counter";
 static const int WINDOW_WIDTH = 640;
 static const int WINDOW_HEIGHT = 480;
 
-// Cores da paleta da interface
+// Mesmo tom da moldura da imagem na página
 static const Uint8 BACKGROUND_RED = 0x0A;
 static const Uint8 BACKGROUND_GREEN = 0x0A;
 static const Uint8 BACKGROUND_BLUE = 0x0A;
-static const Uint8 ACCENT_RED = 0x00;
-static const Uint8 ACCENT_GREEN = 0x70;
-static const Uint8 ACCENT_BLUE = 0xF3;
 
-static const float RECTANGLE_SCALE = 0.5f;
+static const int RGBA_BYTES_PER_PIXEL = 4;
+
+// Folga para a janela não cobrir a tela inteira com fotos grandes
+static const float SCREEN_FILL_RATIO = 0.9f;
 
 typedef struct AppState {
     SDL_Window *window;
     SDL_Renderer *renderer;
+    SDL_Texture *texture;
+    RgbaImage image;
 } AppState;
+
+// Reduz a janela proporcionalmente se a foto for maior que a tela
+static void fit_window_to_image(SDL_Window *window, int width, int height)
+{
+    float scale = 1.0f;
+    SDL_Rect bounds;
+    if (SDL_GetDisplayUsableBounds(SDL_GetDisplayForWindow(window), &bounds)) {
+        float scaleX = bounds.w * SCREEN_FILL_RATIO / width;
+        float scaleY = bounds.h * SCREEN_FILL_RATIO / height;
+        scale = SDL_min(1.0f, SDL_min(scaleX, scaleY));
+    }
+    SDL_SetWindowSize(window, (int)(width * scale), (int)(height * scale));
+    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+}
+
+// Copia os pixels para uma textura e ajusta a janela à imagem
+static bool show_image(AppState *state, const RgbaImage *image)
+{
+    SDL_Texture *texture = SDL_CreateTexture(state->renderer, SDL_PIXELFORMAT_RGBA32,
+                                             SDL_TEXTUREACCESS_STATIC, image->width,
+                                             image->height);
+    if (texture == NULL) {
+        SDL_Log("Falha ao criar a textura: %s", SDL_GetError());
+        return false;
+    }
+    if (!SDL_UpdateTexture(texture, NULL, image->pixels, image->width * RGBA_BYTES_PER_PIXEL)) {
+        SDL_Log("Falha ao enviar a imagem para a textura: %s", SDL_GetError());
+        SDL_DestroyTexture(texture);
+        return false;
+    }
+
+    if (state->texture != NULL) {
+        SDL_DestroyTexture(state->texture);
+    }
+    state->texture = texture;
+
+    // Desenhar em coordenadas da imagem deixa as marcações futuras alinhadas
+    // em qualquer tamanho de janela
+    SDL_SetRenderLogicalPresentation(state->renderer, image->width, image->height,
+                                     SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    fit_window_to_image(state->window, image->width, image->height);
+    return true;
+}
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
-    (void)argc;
-    (void)argv;
-
     // No navegador o SDL bloquearia as teclas da página toda e os campos
     // do painel não receberiam texto. No nativo a dica é ignorada
     SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#canvas");
@@ -54,6 +98,19 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
         return SDL_APP_FAILURE;
     }
 
+    // No nativo a foto vem pela linha de comando, na web virá do upload
+    if (argc > 1) {
+        if (!rgba_image_load_from_file(&state->image, argv[1])) {
+            SDL_Log("Falha ao carregar a imagem %s (%s)", argv[1], image_last_error());
+            return SDL_APP_FAILURE;
+        }
+        SDL_Log("Imagem carregada com %d x %d pixels", state->image.width,
+                state->image.height);
+        if (!show_image(state, &state->image)) {
+            return SDL_APP_FAILURE;
+        }
+    }
+
     return SDL_APP_CONTINUE;
 }
 
@@ -75,18 +132,9 @@ SDL_AppResult SDL_AppIterate(void *appstate)
                            BACKGROUND_BLUE, SDL_ALPHA_OPAQUE);
     SDL_RenderClear(state->renderer);
 
-    // Centralizado para confirmar que toda a área de desenho aparece
-    float rectangleWidth = WINDOW_WIDTH * RECTANGLE_SCALE;
-    float rectangleHeight = WINDOW_HEIGHT * RECTANGLE_SCALE;
-    SDL_FRect rectangle = {
-        (WINDOW_WIDTH - rectangleWidth) / 2.0f,
-        (WINDOW_HEIGHT - rectangleHeight) / 2.0f,
-        rectangleWidth,
-        rectangleHeight,
-    };
-    SDL_SetRenderDrawColor(state->renderer, ACCENT_RED, ACCENT_GREEN, ACCENT_BLUE,
-                           SDL_ALPHA_OPAQUE);
-    SDL_RenderFillRect(state->renderer, &rectangle);
+    if (state->texture != NULL) {
+        SDL_RenderTexture(state->renderer, state->texture, NULL, NULL);
+    }
 
     SDL_RenderPresent(state->renderer);
     return SDL_APP_CONTINUE;
@@ -98,7 +146,11 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result)
 
     AppState *state = appstate;
     if (state != NULL) {
-        // O renderizador depende da janela, por isso é destruído antes
+        rgba_image_free(&state->image);
+        // A textura depende do renderizador, que depende da janela
+        if (state->texture != NULL) {
+            SDL_DestroyTexture(state->texture);
+        }
         if (state->renderer != NULL) {
             SDL_DestroyRenderer(state->renderer);
         }
