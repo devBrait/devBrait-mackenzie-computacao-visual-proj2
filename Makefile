@@ -29,6 +29,10 @@ NATIVE_LIBS = $(filter-out -mwindows,$(shell pkg-config --libs sdl3)) -lm
 # O emcc baixa e compila o port do SDL3 na primeira vez e guarda em cache
 WEB_FLAGS = $(COMMON_FLAGS) --use-port=sdl3
 
+# A página é o shell do emcc, que injeta o script do wasm nela
+WEB_SHELL = web/index.html
+WEB_ASSETS = $(WEB_DIR)/style.css
+
 PORT = 8000
 
 .PHONY: all native web serve clean
@@ -40,10 +44,14 @@ native: $(NATIVE_DIR)/$(APP_NAME)
 $(NATIVE_DIR)/$(APP_NAME): $(SOURCES) | $(NATIVE_DIR)
 	$(CC) $(NATIVE_CFLAGS) $(SOURCES) -o $@ $(NATIVE_LIBS)
 
-web: $(WEB_DIR)/index.html
+web: $(WEB_DIR)/index.html $(WEB_ASSETS)
 
-$(WEB_DIR)/index.html: $(SOURCES) | $(WEB_DIR)
-	$(EMCC) $(WEB_FLAGS) $(SOURCES) -o $@
+$(WEB_DIR)/index.html: $(SOURCES) $(WEB_SHELL) | $(WEB_DIR)
+	$(EMCC) $(WEB_FLAGS) --shell-file $(WEB_SHELL) $(SOURCES) -o $@
+
+# Arquivos estáticos vão sem alteração para junto do index.html
+$(WEB_DIR)/%.css: web/%.css | $(WEB_DIR)
+	cp $< $@
 
 # O navegador não carrega WebAssembly por file://
 serve: web

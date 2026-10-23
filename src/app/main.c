@@ -30,6 +30,10 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     (void)argc;
     (void)argv;
 
+    // No navegador o SDL bloquearia as teclas da página toda e os campos
+    // do painel não receberiam texto. No nativo a dica é ignorada
+    SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#canvas");
+
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         SDL_Log("Falha ao inicializar o SDL: %s", SDL_GetError());
         return SDL_APP_FAILURE;
