@@ -8,6 +8,7 @@
 
 #include "app/app.h"
 #include "core/image.h"
+#include "core/pipeline.h"
 
 static const char *WINDOW_TITLE = "Object Counter";
 static const int WINDOW_WIDTH = 640;
@@ -25,6 +26,7 @@ typedef struct AppState {
     SDL_Renderer *renderer;
     SDL_Texture *texture;
     RgbaImage image;
+    Pipeline pipeline;
 } AppState;
 
 // Usado pelas funções chamadas da página, que não recebem o estado
@@ -49,49 +51,89 @@ static void fit_window_to_image(SDL_Window *window, int width, int height)
 }
 #endif
 
-// Copia os pixels para uma textura e ajusta a janela à imagem
-static bool show_image(AppState *state, const RgbaImage *image)
+// Streaming permite reescrever os pixels quando a etapa exibida mudar
+static SDL_Texture *create_texture(SDL_Renderer *renderer, int width, int height)
 {
-    SDL_Texture *texture = SDL_CreateTexture(state->renderer, SDL_PIXELFORMAT_RGBA32,
-                                             SDL_TEXTUREACCESS_STATIC, image->width,
-                                             image->height);
+    SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32,
+                                             SDL_TEXTUREACCESS_STREAMING, width, height);
     if (texture == NULL) {
         SDL_Log("Falha ao criar a textura: %s", SDL_GetError());
+    }
+    return texture;
+}
+
+// A textura não tem formato cinza, então cada valor vira R, G e B iguais
+static bool upload_gray(SDL_Texture *texture, const GrayImage *gray)
+{
+    void *pixels = NULL;
+    int pitch = 0;
+    if (!SDL_LockTexture(texture, NULL, &pixels, &pitch)) {
+        SDL_Log("Falha ao acessar a textura: %s", SDL_GetError());
         return false;
     }
-    if (!SDL_UpdateTexture(texture, NULL, image->pixels, image->width * RGBA_BYTES_PER_PIXEL)) {
-        SDL_Log("Falha ao enviar a imagem para a textura: %s", SDL_GetError());
-        SDL_DestroyTexture(texture);
+
+    for (int y = 0; y < gray->height; y++) {
+        // O pitch pode ser maior que a largura vezes 4 por alinhamento
+        Uint8 *row = (Uint8 *)pixels + (size_t)y * (size_t)pitch;
+        const unsigned char *source = gray->pixels + (size_t)y * (size_t)gray->width;
+        for (int x = 0; x < gray->width; x++) {
+            Uint8 *pixel = row + (size_t)x * RGBA_BYTES_PER_PIXEL;
+            pixel[0] = source[x];
+            pixel[1] = source[x];
+            pixel[2] = source[x];
+            pixel[3] = SDL_ALPHA_OPAQUE;
+        }
+    }
+
+    SDL_UnlockTexture(texture);
+    return true;
+}
+
+// Desenhar em coordenadas da imagem deixa as marcações futuras alinhadas
+// em qualquer tamanho de janela
+static void resize_display(AppState *state, int width, int height)
+{
+    SDL_SetRenderLogicalPresentation(state->renderer, width, height,
+                                     SDL_LOGICAL_PRESENTATION_LETTERBOX);
+#ifdef __EMSCRIPTEN__
+    // Na web o canvas guarda o tamanho real e o CSS reduz a exibição
+    SDL_SetWindowSize(state->window, width, height);
+#else
+    fit_window_to_image(state->window, width, height);
+#endif
+}
+
+// Processa e prepara tudo antes de mexer no estado, assim uma falha
+// mantém a imagem anterior na tela
+static bool replace_image(AppState *state, RgbaImage *loaded)
+{
+    Pipeline pipeline;
+    if (!pipeline_process(&pipeline, loaded)) {
+        SDL_Log("Memória insuficiente para processar a imagem.");
+        rgba_image_free(loaded);
+        return false;
+    }
+
+    SDL_Texture *texture = create_texture(state->renderer, loaded->width, loaded->height);
+    if (texture == NULL || !upload_gray(texture, &pipeline.gray)) {
+        if (texture != NULL) {
+            SDL_DestroyTexture(texture);
+        }
+        pipeline_free(&pipeline);
+        rgba_image_free(loaded);
         return false;
     }
 
     if (state->texture != NULL) {
         SDL_DestroyTexture(state->texture);
     }
-    state->texture = texture;
-
-    // Desenhar em coordenadas da imagem deixa as marcações futuras alinhadas
-    // em qualquer tamanho de janela
-    SDL_SetRenderLogicalPresentation(state->renderer, image->width, image->height,
-                                     SDL_LOGICAL_PRESENTATION_LETTERBOX);
-#ifdef __EMSCRIPTEN__
-    // Na web o canvas guarda o tamanho real e o CSS reduz a exibição
-    SDL_SetWindowSize(state->window, image->width, image->height);
-#else
-    fit_window_to_image(state->window, image->width, image->height);
-#endif
-    return true;
-}
-
-// A imagem atual só é trocada se a nova for exibida com sucesso
-static bool replace_image(AppState *state, RgbaImage *loaded)
-{
-    if (!show_image(state, loaded)) {
-        rgba_image_free(loaded);
-        return false;
-    }
+    pipeline_free(&state->pipeline);
     rgba_image_free(&state->image);
+    state->texture = texture;
+    state->pipeline = pipeline;
     state->image = *loaded;
+
+    resize_display(state, state->image.width, state->image.height);
     SDL_Log("Imagem carregada com %d x %d pixels", state->image.width, state->image.height);
     return true;
 }
@@ -185,6 +227,7 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result)
 
     AppState *state = appstate;
     if (state != NULL) {
+        pipeline_free(&state->pipeline);
         rgba_image_free(&state->image);
         // A textura depende do renderizador, que depende da janela
         if (state->texture != NULL) {
