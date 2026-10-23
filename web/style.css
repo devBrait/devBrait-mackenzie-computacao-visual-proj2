@@ -10,6 +10,7 @@
     --color-text-subtle: #737373;
     --color-accent: #0070F3;
     --color-accent-hover: #0761D1;
+    --color-error: #FF4D4F;
 
     --font-sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -157,6 +158,8 @@ input {
 .image-frame {
     flex: 1;
     display: grid;
+    /* Célula com o tamanho da moldura, senão o max-height do canvas não limita nada */
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
     place-items: center;
     min-height: 0;
     padding: var(--gap);
@@ -169,12 +172,41 @@ input {
 /* O canvas guarda o tamanho real da imagem e o CSS só reduz a exibição.
    O important vence o estilo inline que o Emscripten pode aplicar */
 .image-canvas {
+    grid-area: 1 / 1;
     display: block;
     width: auto !important;
     height: auto !important;
     max-width: 100%;
     max-height: 100%;
     outline: none;
+    visibility: hidden;
+}
+
+/* visibility mantém o tamanho do canvas, que o SDL mede ao iniciar */
+.image-frame.has-image .image-canvas {
+    visibility: visible;
+}
+
+.empty-state {
+    grid-area: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+}
+
+.image-frame.has-image .empty-state {
+    display: none;
+}
+
+.empty-title {
+    font-weight: 500;
+}
+
+.empty-hint {
+    color: var(--color-text-muted);
+    font-size: 13px;
 }
 
 /* Painel lateral */
@@ -284,4 +316,21 @@ input {
 .dropzone:hover .button-primary {
     background: var(--color-accent-hover);
     border-color: var(--color-accent-hover);
+}
+
+/* Mensagem abaixo do envio */
+
+.status {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.status:empty {
+    display: none;
+}
+
+.status.is-error {
+    color: var(--color-error);
 }

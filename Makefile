@@ -29,12 +29,20 @@ NATIVE_CFLAGS = $(COMMON_FLAGS) $(shell pkg-config --cflags sdl3)
 # Sem -mwindows para o console mostrar as mensagens de erro
 NATIVE_LIBS = $(filter-out -mwindows,$(shell pkg-config --libs sdl3)) -lm
 
+# Ponte entre o JS e o C, só existe na versão web
+WEB_SOURCES = $(SOURCES) src/app/web_api.c
+
 # O emcc baixa e compila o port do SDL3 na primeira vez e guarda em cache
 WEB_FLAGS = $(COMMON_FLAGS) --use-port=sdl3
+# Funções e memória do wasm que o app.js acessa
+WEB_FLAGS += -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_api_load_image
+WEB_FLAGS += -sEXPORTED_RUNTIME_METHODS=HEAPU8
+# Fotos de celular passam da memória inicial do wasm
+WEB_FLAGS += -sALLOW_MEMORY_GROWTH=1
 
 # A página é o shell do emcc, que injeta o script do wasm nela
 WEB_SHELL = web/index.html
-WEB_ASSETS = $(WEB_DIR)/style.css
+WEB_ASSETS = $(WEB_DIR)/style.css $(WEB_DIR)/app.js
 
 PORT = 8000
 
@@ -49,11 +57,14 @@ $(NATIVE_DIR)/$(APP_NAME): $(SOURCES) $(HEADERS) | $(NATIVE_DIR)
 
 web: $(WEB_DIR)/index.html $(WEB_ASSETS)
 
-$(WEB_DIR)/index.html: $(SOURCES) $(HEADERS) $(WEB_SHELL) | $(WEB_DIR)
-	$(EMCC) $(WEB_FLAGS) --shell-file $(WEB_SHELL) $(SOURCES) -o $@
+$(WEB_DIR)/index.html: $(WEB_SOURCES) $(HEADERS) $(WEB_SHELL) | $(WEB_DIR)
+	$(EMCC) $(WEB_FLAGS) --shell-file $(WEB_SHELL) $(WEB_SOURCES) -o $@
 
 # Arquivos estáticos vão sem alteração para junto do index.html
 $(WEB_DIR)/%.css: web/%.css | $(WEB_DIR)
+	cp $< $@
+
+$(WEB_DIR)/app.js: web/app.js | $(WEB_DIR)
 	cp $< $@
 
 # O navegador não carrega WebAssembly por file://

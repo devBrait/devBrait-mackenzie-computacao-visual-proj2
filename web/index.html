@@ -32,6 +32,10 @@
             <div class="image-frame">
                 <!-- O SDL desenha neste canvas, o id precisa ser canvas -->
                 <canvas id="canvas" class="image-canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+                <div class="empty-state">
+                    <span class="empty-title">Nenhuma imagem carregada</span>
+                    <span class="empty-hint">Escolha ou arraste uma foto para começar</span>
+                </div>
             </div>
         </section>
 
@@ -47,6 +51,8 @@
                 <span class="dropzone-hint">ou arraste uma foto para cá</span>
                 <span class="dropzone-formats">PNG, JPG ou BMP</span>
             </label>
+
+            <p id="status" class="status" role="status" aria-live="polite"></p>
         </aside>
     </main>
 
@@ -56,6 +62,8 @@
             canvas: document.getElementById('canvas'),
         };
     </script>
+    <!-- Antes do wasm para registrar os callbacks do Module a tempo -->
+    <script src="app.js"></script>
     {{{ SCRIPT }}}
 </body>
 </html>

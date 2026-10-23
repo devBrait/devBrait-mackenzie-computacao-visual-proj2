@@ -6,6 +6,7 @@
 
 #include <stdlib.h>
 
+#include "app/app.h"
 #include "core/image.h"
 
 static const char *WINDOW_TITLE = "Object Counter";
@@ -19,15 +20,19 @@ static const Uint8 BACKGROUND_BLUE = 0x0A;
 
 static const int RGBA_BYTES_PER_PIXEL = 4;
 
-// Folga para a janela não cobrir a tela inteira com fotos grandes
-static const float SCREEN_FILL_RATIO = 0.9f;
-
 typedef struct AppState {
     SDL_Window *window;
     SDL_Renderer *renderer;
     SDL_Texture *texture;
     RgbaImage image;
 } AppState;
+
+// Usado pelas funções chamadas da página, que não recebem o estado
+static AppState *appState = NULL;
+
+#ifndef __EMSCRIPTEN__
+// Folga para a janela não cobrir a tela inteira com fotos grandes
+static const float SCREEN_FILL_RATIO = 0.9f;
 
 // Reduz a janela proporcionalmente se a foto for maior que a tela
 static void fit_window_to_image(SDL_Window *window, int width, int height)
@@ -42,6 +47,7 @@ static void fit_window_to_image(SDL_Window *window, int width, int height)
     SDL_SetWindowSize(window, (int)(width * scale), (int)(height * scale));
     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 }
+#endif
 
 // Copia os pixels para uma textura e ajusta a janela à imagem
 static bool show_image(AppState *state, const RgbaImage *image)
@@ -68,8 +74,41 @@ static bool show_image(AppState *state, const RgbaImage *image)
     // em qualquer tamanho de janela
     SDL_SetRenderLogicalPresentation(state->renderer, image->width, image->height,
                                      SDL_LOGICAL_PRESENTATION_LETTERBOX);
+#ifdef __EMSCRIPTEN__
+    // Na web o canvas guarda o tamanho real e o CSS reduz a exibição
+    SDL_SetWindowSize(state->window, image->width, image->height);
+#else
     fit_window_to_image(state->window, image->width, image->height);
+#endif
     return true;
+}
+
+// A imagem atual só é trocada se a nova for exibida com sucesso
+static bool replace_image(AppState *state, RgbaImage *loaded)
+{
+    if (!show_image(state, loaded)) {
+        rgba_image_free(loaded);
+        return false;
+    }
+    rgba_image_free(&state->image);
+    state->image = *loaded;
+    SDL_Log("Imagem carregada com %d x %d pixels", state->image.width, state->image.height);
+    return true;
+}
+
+bool app_load_image_from_memory(const unsigned char *data, size_t size)
+{
+    if (appState == NULL) {
+        SDL_Log("A aplicação ainda não terminou de iniciar.");
+        return false;
+    }
+
+    RgbaImage loaded;
+    if (!rgba_image_load_from_memory(&loaded, data, size)) {
+        SDL_Log("Falha ao decodificar a imagem (%s)", image_last_error());
+        return false;
+    }
+    return replace_image(appState, &loaded);
 }
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
@@ -91,6 +130,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
         return SDL_APP_FAILURE;
     }
     *appstate = state;
+    appState = state;
 
     if (!SDL_CreateWindowAndRenderer(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, 0,
                                      &state->window, &state->renderer)) {
@@ -100,13 +140,12 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 
     // No nativo a foto vem pela linha de comando, na web virá do upload
     if (argc > 1) {
-        if (!rgba_image_load_from_file(&state->image, argv[1])) {
+        RgbaImage loaded;
+        if (!rgba_image_load_from_file(&loaded, argv[1])) {
             SDL_Log("Falha ao carregar a imagem %s (%s)", argv[1], image_last_error());
             return SDL_APP_FAILURE;
         }
-        SDL_Log("Imagem carregada com %d x %d pixels", state->image.width,
-                state->image.height);
-        if (!show_image(state, &state->image)) {
+        if (!replace_image(state, &loaded)) {
             return SDL_APP_FAILURE;
         }
     }
@@ -159,5 +198,6 @@ void SDL_AppQuit(void *appstate, SDL_AppResult result)
         }
         free(state);
     }
+    appState = NULL;
     // O SDL chama SDL_Quit sozinho depois deste callback
 }
