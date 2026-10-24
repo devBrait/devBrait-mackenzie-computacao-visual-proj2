@@ -8,4 +8,8 @@
 // para que os parâmetros em pixels tenham o mesmo efeito em qualquer foto
 #define WORK_MAX_SIDE 1024
 
+// Desvio padrão do Gaussiano em pixels da imagem de trabalho. Maior apaga
+// mais textura do fundo, mas também arredonda as bordas dos objetos
+#define GAUSSIAN_SIGMA 1.5f
+
 #endif

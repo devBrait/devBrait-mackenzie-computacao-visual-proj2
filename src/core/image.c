@@ -20,15 +20,29 @@ static const double LUMA_RED = 0.2125;
 static const double LUMA_GREEN = 0.7154;
 static const double LUMA_BLUE = 0.0721;
 
-// Converte o resultado do stb e deixa a struct zerada em caso de falha
+static const char *UNKNOWN_ERROR = "erro desconhecido";
+
+// Motivo da última falha de carregamento, nosso ou do stb
+static const char *lastError = NULL;
+
+// Deixa a struct zerada e guarda o motivo para image_last_error
+static bool fail_load(RgbaImage *image, const char *reason)
+{
+    image->width = 0;
+    image->height = 0;
+    image->pixels = NULL;
+    lastError = reason;
+
+    return false;
+}
+
+// Converte o resultado do stb, que devolve NULL quando falha
 static bool finish_load(RgbaImage *image, unsigned char *pixels, int width, int height)
 {
     if (pixels == NULL) {
-        image->width = 0;
-        image->height = 0;
-        image->pixels = NULL;
-        return false;
+        return fail_load(image, stbi_failure_reason());
     }
+
     image->width = width;
     image->height = height;
     image->pixels = pixels;
@@ -39,8 +53,7 @@ bool rgba_image_load_from_memory(RgbaImage *image, const unsigned char *data, si
 {
     // O stb recebe o tamanho como int
     if (data == NULL || size == 0 || size > INT_MAX) {
-        stbi__err("invalid buffer", "Buffer vazio ou grande demais");
-        return finish_load(image, NULL, 0, 0);
+        return fail_load(image, "buffer vazio ou grande demais");
     }
 
     int width = 0;
@@ -132,8 +145,7 @@ bool rgba_image_limit_size(RgbaImage *image, int maxSide)
 
 const char *image_last_error(void)
 {
-    const char *reason = stbi_failure_reason();
-    return reason != NULL ? reason : "erro desconhecido";
+    return lastError != NULL ? lastError : UNKNOWN_ERROR;
 }
 
 bool gray_image_alloc(GrayImage *image, int width, int height)

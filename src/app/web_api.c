@@ -11,3 +11,9 @@ EMSCRIPTEN_KEEPALIVE int api_load_image(const unsigned char *data, int size)
     }
     return app_load_image_from_memory(data, (size_t)size) ? 1 : 0;
 }
+
+// Recebe o índice da aba clicada, na mesma ordem de PipelineStage
+EMSCRIPTEN_KEEPALIVE int api_set_display_stage(int stage)
+{
+    return app_set_display_stage(stage) ? 1 : 0;
+}

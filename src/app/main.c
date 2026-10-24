@@ -22,12 +22,21 @@ static const Uint8 BACKGROUND_BLUE = 0x0A;
 
 static const int RGBA_BYTES_PER_PIXEL = 4;
 
+// Nomes para o console, na ordem de PipelineStage
+static const char *STAGE_NAMES[STAGE_COUNT] = {
+    "Cinza", "Suavizada", "Binária", "Morfologia", "Resultado",
+};
+
+// A página abre com a aba Resultado ativa
+static const PipelineStage INITIAL_STAGE = STAGE_RESULT;
+
 typedef struct AppState {
     SDL_Window *window;
     SDL_Renderer *renderer;
     SDL_Texture *texture;
     RgbaImage image;
     Pipeline pipeline;
+    PipelineStage stage;
 } AppState;
 
 // Usado pelas funções chamadas da página, que não recebem o estado
@@ -124,7 +133,8 @@ static bool replace_image(AppState *state, RgbaImage *loaded)
     }
 
     SDL_Texture *texture = create_texture(state->renderer, loaded->width, loaded->height);
-    if (texture == NULL || !upload_gray(texture, &pipeline.gray)) {
+    if (texture == NULL ||
+        !upload_gray(texture, pipeline_stage_image(&pipeline, state->stage))) {
         if (texture != NULL) {
             SDL_DestroyTexture(texture);
         }
@@ -145,7 +155,27 @@ static bool replace_image(AppState *state, RgbaImage *loaded)
     resize_display(state, state->image.width, state->image.height);
     SDL_Log("Imagem carregada com %d x %d pixels, processada em %d x %d", originalWidth,
             originalHeight, state->image.width, state->image.height);
+    SDL_Log("Limiar de Otsu %d, fundo %s", state->pipeline.threshold,
+            state->pipeline.inverted ? "claro (imagem invertida)" : "escuro");
     return true;
+}
+
+bool app_set_display_stage(int stage)
+{
+    if (appState == NULL || stage < 0 || stage >= STAGE_COUNT) {
+        return false;
+    }
+
+    appState->stage = (PipelineStage)stage;
+    SDL_Log("Etapa exibida %s", STAGE_NAMES[stage]);
+
+    // Sem imagem só guarda a escolha, que vale para o próximo upload
+    if (appState->texture == NULL) {
+        return true;
+    }
+
+    return upload_gray(appState->texture,
+                       pipeline_stage_image(&appState->pipeline, appState->stage));
 }
 
 bool app_load_image_from_memory(const unsigned char *data, size_t size)
@@ -183,6 +213,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
     }
     *appstate = state;
     appState = state;
+    state->stage = INITIAL_STAGE;
 
     if (!SDL_CreateWindowAndRenderer(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT, 0,
                                      &state->window, &state->renderer)) {
@@ -212,6 +243,15 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
     if (event->type == SDL_EVENT_QUIT) {
         return SDL_APP_SUCCESS;
     }
+
+#ifndef __EMSCRIPTEN__
+    // Na web quem troca a etapa são as abas, assim a aba ativa não fica errada
+    if (event->type == SDL_EVENT_KEY_DOWN && event->key.key >= SDLK_1 &&
+        event->key.key < SDLK_1 + STAGE_COUNT) {
+        app_set_display_stage((int)(event->key.key - SDLK_1));
+    }
+#endif
+
     return SDL_APP_CONTINUE;
 }
 

@@ -7,4 +7,7 @@
 // Decodifica os bytes de um arquivo e passa a exibir essa imagem
 bool app_load_image_from_memory(const unsigned char *data, size_t size);
 
+// Troca a etapa exibida. Recusa valores fora das etapas existentes
+bool app_set_display_stage(int stage);
+
 #endif

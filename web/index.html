@@ -20,13 +20,13 @@
 
     <main class="layout">
         <section class="viewer">
-            <!-- Abas ainda estáticas, ganham comportamento no item 08 -->
+            <!-- data-stage segue a ordem de PipelineStage no C -->
             <nav class="tabs" role="tablist" aria-label="Etapa exibida">
-                <button class="tab" type="button" role="tab" aria-selected="false">Cinza</button>
-                <button class="tab" type="button" role="tab" aria-selected="false">Suavizada</button>
-                <button class="tab" type="button" role="tab" aria-selected="false">Binária</button>
-                <button class="tab" type="button" role="tab" aria-selected="false">Morfologia</button>
-                <button class="tab is-active" type="button" role="tab" aria-selected="true">Resultado</button>
+                <button class="tab" type="button" role="tab" aria-selected="false" data-stage="0">Cinza</button>
+                <button class="tab" type="button" role="tab" aria-selected="false" data-stage="1">Suavizada</button>
+                <button class="tab" type="button" role="tab" aria-selected="false" data-stage="2">Binária</button>
+                <button class="tab" type="button" role="tab" aria-selected="false" data-stage="3">Morfologia</button>
+                <button class="tab is-active" type="button" role="tab" aria-selected="true" data-stage="4">Resultado</button>
             </nav>
 
             <div class="image-frame">

@@ -6,6 +6,7 @@
     const dropzone = document.querySelector('.dropzone');
     const frame = document.querySelector('.image-frame');
     const status = document.getElementById('status');
+    const tabs = Array.from(document.querySelectorAll('.tab'));
 
     let runtimeReady = false;
     // Conta entradas e saídas porque cada elemento filho dispara dragleave
@@ -13,7 +14,34 @@
 
     Module.onRuntimeInitialized = function () {
         runtimeReady = true;
+
+        // A aba pode ter sido trocada enquanto o wasm carregava
+        const active = tabs.find(function (tab) {
+            return tab.classList.contains('is-active');
+        });
+
+        Module._api_set_display_stage(Number(active.dataset.stage));
     };
+
+    function selectTab(selected) {
+        tabs.forEach(function (tab) {
+            const isActive = tab === selected;
+
+            tab.classList.toggle('is-active', isActive);
+            tab.setAttribute('aria-selected', String(isActive));
+        });
+
+        // Antes do wasm pronto só a aba muda, o C recebe a etapa ao iniciar
+        if (runtimeReady) {
+            Module._api_set_display_stage(Number(selected.dataset.stage));
+        }
+    }
+
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            selectTab(tab);
+        });
+    });
 
     function showStatus(message, isError) {
         status.textContent = message;
