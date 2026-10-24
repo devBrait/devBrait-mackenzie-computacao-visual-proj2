@@ -22,6 +22,7 @@ typedef struct Pipeline {
     GrayImage gray;
     GrayImage smoothed;
     GrayImage binary;
+    GrayImage morphology;
 
     // Guardados para o console mostrar o que o Otsu decidiu
     int threshold;

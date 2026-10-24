@@ -12,4 +12,9 @@
 // mais textura do fundo, mas também arredonda as bordas dos objetos
 #define GAUSSIAN_SIGMA 1.5f
 
+// Passadas 3x3 de cada operação morfológica. A abertura apaga sujeira de
+// até uns 2 pixels de raio e o fechamento tapa furos do mesmo tamanho
+#define OPENING_ITERATIONS 2
+#define CLOSING_ITERATIONS 2
+
 #endif
