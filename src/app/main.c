@@ -12,7 +12,7 @@
 #include "core/params.h"
 #include "core/pipeline.h"
 
-static const char *WINDOW_TITLE = "Object Counter";
+static const char *WINDOW_TITLE = "Contador de objetos";
 static const int WINDOW_WIDTH = 640;
 static const int WINDOW_HEIGHT = 480;
 
@@ -174,8 +174,13 @@ static bool replace_image(AppState *state, RgbaImage *loaded)
     resize_display(state, state->image.width, state->image.height);
     SDL_Log("Imagem carregada com %d x %d pixels, processada em %d x %d", originalWidth,
             originalHeight, state->image.width, state->image.height);
-    SDL_Log("Limiar de Otsu %d, fundo %s", state->pipeline.threshold,
+    SDL_Log("Limiar de Otsu %d, contraste %.0f, fundo %s", state->pipeline.threshold,
+            state->pipeline.contrast,
             state->pipeline.inverted ? "claro (imagem invertida)" : "escuro");
+
+    if (state->pipeline.contrast < MIN_CONTRAST) {
+        SDL_Log("Contraste abaixo de %.0f, imagem sem objetos", MIN_CONTRAST);
+    }
     SDL_Log("Componentes rotulados %d, descartados por área %d, restantes %d",
             state->pipeline.labeledCount,
             state->pipeline.labeledCount - state->pipeline.components.count,
@@ -210,6 +215,24 @@ int app_get_count(void)
     }
 
     return appState->pipeline.objectCount;
+}
+
+void app_clear_image(void)
+{
+    if (appState == NULL) {
+        return;
+    }
+
+    // Sem textura o SDL_AppIterate só pinta o fundo
+    if (appState->texture != NULL) {
+        SDL_DestroyTexture(appState->texture);
+        appState->texture = NULL;
+    }
+
+    pipeline_free(&appState->pipeline);
+    rgba_image_free(&appState->image);
+
+    SDL_Log("Imagem removida");
 }
 
 bool app_load_image_from_memory(const unsigned char *data, size_t size)

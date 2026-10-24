@@ -4,8 +4,12 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include "morphology.h"
+
 static const unsigned char WHITE = 255;
+static const unsigned char BLACK = 0;
 static const int INITIAL_CAPACITY = 16;
+static const double PI = 3.14159265358979323846;
 
 // Garante espaço para mais um componente dobrando a capacidade,
 // assim o realloc roda poucas vezes
@@ -28,21 +32,21 @@ static bool reserve_component(ComponentList *list, int *capacity)
     return true;
 }
 
-// Busca em largura a partir de start. Cada pixel é marcado ao entrar na fila,
-// então entra uma vez só e a fila nunca passa do tamanho da imagem
-static Component flood_component(const GrayImage *binary, unsigned char *visited, int *queue,
+// Busca em largura a partir de start. Cada pixel recebe o rótulo ao entrar na
+// fila, então entra uma vez só e a fila nunca passa do tamanho da imagem
+static Component flood_component(const GrayImage *binary, int *labels, int label, int *queue,
                                  int start)
 {
     int width = binary->width;
     int height = binary->height;
-    Component component = {0, width, height, -1, -1, 0.0, 0.0, 1};
+    Component component = {0, width, height, -1, -1, 0.0, 0.0, 1, label};
     double sumX = 0.0;
     double sumY = 0.0;
     int head = 0;
     int tail = 0;
 
     queue[tail++] = start;
-    visited[start] = 1;
+    labels[start] = label;
 
     while (head < tail) {
         int index = queue[head++];
@@ -86,8 +90,8 @@ static Component flood_component(const GrayImage *binary, unsigned char *visited
 
                 int neighbor = neighborY * width + neighborX;
 
-                if (!visited[neighbor] && binary->pixels[neighbor] == WHITE) {
-                    visited[neighbor] = 1;
+                if (labels[neighbor] == 0 && binary->pixels[neighbor] == WHITE) {
+                    labels[neighbor] = label;
                     queue[tail++] = neighbor;
                 }
             }
@@ -100,40 +104,40 @@ static Component flood_component(const GrayImage *binary, unsigned char *visited
     return component;
 }
 
-bool label_components(const GrayImage *binary, ComponentList *list)
+bool label_components(const GrayImage *binary, int *labels, ComponentList *list)
 {
     list->items = NULL;
     list->count = 0;
 
     // Índices em int bastam, a imagem de trabalho tem no máximo WORK_MAX_SIDE de lado
     int count = binary->width * binary->height;
-    unsigned char *visited = calloc((size_t)count, 1);
     int *queue = malloc(sizeof(int) * (size_t)count);
     int capacity = 0;
 
-    if (visited == NULL || queue == NULL) {
-        free(visited);
-        free(queue);
+    if (queue == NULL) {
         return false;
     }
 
+    // Rótulo zero também marca os pixels ainda não visitados
     for (int i = 0; i < count; i++) {
-        if (visited[i] || binary->pixels[i] != WHITE) {
+        labels[i] = 0;
+    }
+
+    for (int i = 0; i < count; i++) {
+        if (labels[i] != 0 || binary->pixels[i] != WHITE) {
             continue;
         }
 
         if (!reserve_component(list, &capacity)) {
-            free(visited);
             free(queue);
             component_list_free(list);
             return false;
         }
 
-        list->items[list->count] = flood_component(binary, visited, queue, i);
+        list->items[list->count] = flood_component(binary, labels, list->count + 1, queue, i);
         list->count++;
     }
 
-    free(visited);
     free(queue);
 
     return true;
@@ -222,8 +226,63 @@ bool median_component_area(const ComponentList *list, double *median)
     return median_area_in_range(list, 0.0, DBL_MAX, median);
 }
 
-bool estimate_touching_pieces(ComponentList *list, double isolatedMin, double isolatedMax,
-                              double touchingFactor, double *referenceArea, int *total)
+// Erode só este componente num recorte e conta os pedaços que sobram. Peças
+// encostadas se ligam por um pescoço fino, que some antes das próprias peças
+static bool count_eroded_pieces(const int *labels, int width, const Component *component,
+                                int iterations, int *pieces)
+{
+    // Uma linha preta em volta deixa a erosão entrar também pela borda do recorte
+    int cropWidth = component->maxX - component->minX + 3;
+    int cropHeight = component->maxY - component->minY + 3;
+    GrayImage crop;
+    ComponentList parts;
+
+    if (!gray_image_alloc(&crop, cropWidth, cropHeight)) {
+        return false;
+    }
+
+    int *cropLabels = malloc(sizeof(int) * (size_t)cropWidth * (size_t)cropHeight);
+
+    if (cropLabels == NULL) {
+        gray_image_free(&crop);
+        return false;
+    }
+
+    // Copia só os pixels deste componente, pontas de vizinhos ficam de fora
+    for (int y = 0; y < cropHeight; y++) {
+        for (int x = 0; x < cropWidth; x++) {
+            bool inside = x > 0 && x < cropWidth - 1 && y > 0 && y < cropHeight - 1;
+            unsigned char value = BLACK;
+
+            if (inside) {
+                int sourceX = component->minX + x - 1;
+                int sourceY = component->minY + y - 1;
+
+                if (labels[sourceY * width + sourceX] == component->label) {
+                    value = WHITE;
+                }
+            }
+
+            crop.pixels[y * cropWidth + x] = value;
+        }
+    }
+
+    bool ok = morphology_erode(&crop, iterations) && label_components(&crop, cropLabels, &parts);
+
+    if (ok) {
+        *pieces = parts.count;
+        component_list_free(&parts);
+    }
+
+    free(cropLabels);
+    gray_image_free(&crop);
+
+    return ok;
+}
+
+bool estimate_touching_pieces(ComponentList *list, const int *labels, int width,
+                              double isolatedMin, double isolatedMax, double touchingFactor,
+                              double erosionFactor, double *referenceArea, int *total)
 {
     double median = 0.0;
     double reference = 0.0;
@@ -242,13 +301,26 @@ bool estimate_touching_pieces(ComponentList *list, double isolatedMin, double is
         reference = median;
     }
 
+    // Raio de um círculo com a área de uma peça. Erodir uma fração dele corta
+    // o pescoço entre peças encostadas sem apagar as peças
+    int iterations = (int)lround(erosionFactor * sqrt(reference / PI));
+
     for (int i = 0; i < list->count; i++) {
         Component *component = &list->items[i];
 
         component->pieces = 1;
 
+        // Um objeto grande e inteiro continua um pedaço só e conta como 1
         if (reference > 0.0 && component->area > touchingFactor * reference) {
-            component->pieces = (int)lround(component->area / reference);
+            int pieces = 0;
+
+            if (!count_eroded_pieces(labels, width, component, iterations, &pieces)) {
+                return false;
+            }
+
+            if (pieces > 1) {
+                component->pieces = pieces;
+            }
         }
 
         *total += component->pieces;

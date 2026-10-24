@@ -14,4 +14,7 @@ bool morphology_open(GrayImage *binary, int iterations);
 // Dilatações seguidas de erosões. Fecha furos e rachaduras pequenas
 bool morphology_close(GrayImage *binary, int iterations);
 
+// Só erosões. Usada para separar peças encostadas
+bool morphology_erode(GrayImage *binary, int iterations);
+
 #endif

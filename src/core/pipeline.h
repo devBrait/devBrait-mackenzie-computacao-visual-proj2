@@ -27,7 +27,11 @@ typedef struct Pipeline {
 
     // Guardados para o console mostrar o que o Otsu decidiu
     int threshold;
+    double contrast;
     bool inverted;
+
+    // Rótulo de cada pixel da morfologia, 0 no fundo
+    int *labels;
 
     // Objetos que sobraram dos filtros de área
     ComponentList components;

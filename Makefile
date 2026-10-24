@@ -35,7 +35,7 @@ WEB_SOURCES = $(SOURCES) src/app/web_api.c
 # O emcc baixa e compila o port do SDL3 na primeira vez e guarda em cache
 WEB_FLAGS = $(COMMON_FLAGS) --use-port=sdl3
 # Funções e memória do wasm que o app.js acessa
-WEB_FLAGS += -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_api_load_image,_api_set_display_stage,_api_get_count
+WEB_FLAGS += -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_api_load_image,_api_set_display_stage,_api_get_count,_api_clear_image
 WEB_FLAGS += -sEXPORTED_RUNTIME_METHODS=HEAPU8
 # Fotos de celular passam da memória inicial do wasm
 WEB_FLAGS += -sALLOW_MEMORY_GROWTH=1

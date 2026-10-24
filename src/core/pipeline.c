@@ -1,5 +1,6 @@
 #include "pipeline.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "filter.h"
@@ -34,12 +35,19 @@ bool pipeline_process(Pipeline *pipeline, const RgbaImage *source)
 
     compute_histogram(&pipeline->smoothed, histogram);
     pipeline->threshold = otsu_threshold(histogram);
-    binarize(&pipeline->smoothed, &pipeline->binary, pipeline->threshold);
-    pipeline->inverted = fix_polarity(&pipeline->binary);
+    pipeline->contrast = class_contrast(histogram, pipeline->threshold);
 
-    // Abre primeiro para a sujeira sumir antes que o fechamento a junte aos objetos
     size_t count = (size_t)source->width * (size_t)source->height;
 
+    // Sem contraste não há objetos, então a binária fica toda preta
+    if (pipeline->contrast < MIN_CONTRAST) {
+        memset(pipeline->binary.pixels, 0, count);
+    } else {
+        binarize(&pipeline->smoothed, &pipeline->binary, pipeline->threshold);
+        pipeline->inverted = fix_polarity(&pipeline->binary);
+    }
+
+    // Abre primeiro para a sujeira sumir antes que o fechamento a junte aos objetos
     memcpy(pipeline->morphology.pixels, pipeline->binary.pixels, count);
 
     if (!morphology_open(&pipeline->morphology, OPENING_ITERATIONS) ||
@@ -48,7 +56,10 @@ bool pipeline_process(Pipeline *pipeline, const RgbaImage *source)
         return false;
     }
 
-    if (!label_components(&pipeline->morphology, &pipeline->components)) {
+    pipeline->labels = malloc(sizeof(int) * count);
+
+    if (pipeline->labels == NULL ||
+        !label_components(&pipeline->morphology, pipeline->labels, &pipeline->components)) {
         pipeline_free(pipeline);
         return false;
     }
@@ -67,9 +78,10 @@ bool pipeline_process(Pipeline *pipeline, const RgbaImage *source)
 
     remove_small_components(&pipeline->components, MIN_AREA_MEDIAN_FACTOR * median);
 
-    if (!estimate_touching_pieces(&pipeline->components, ISOLATED_MIN_FACTOR,
-                                  ISOLATED_MAX_FACTOR, TOUCHING_FACTOR,
-                                  &pipeline->referenceArea, &pipeline->objectCount)) {
+    if (!estimate_touching_pieces(&pipeline->components, pipeline->labels, pipeline->width,
+                                  ISOLATED_MIN_FACTOR, ISOLATED_MAX_FACTOR, TOUCHING_FACTOR,
+                                  SPLIT_EROSION_FACTOR, &pipeline->referenceArea,
+                                  &pipeline->objectCount)) {
         pipeline_free(pipeline);
         return false;
     }
@@ -88,10 +100,13 @@ void pipeline_free(Pipeline *pipeline)
     gray_image_free(&pipeline->binary);
     gray_image_free(&pipeline->morphology);
     component_list_free(&pipeline->components);
+    free(pipeline->labels);
+    pipeline->labels = NULL;
 
     pipeline->width = 0;
     pipeline->height = 0;
     pipeline->threshold = 0;
+    pipeline->contrast = 0.0;
     pipeline->inverted = false;
     pipeline->labeledCount = 0;
     pipeline->referenceArea = 0.0;

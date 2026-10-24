@@ -23,3 +23,9 @@ EMSCRIPTEN_KEEPALIVE int api_get_count(void)
 {
     return app_get_count();
 }
+
+// Chamado pelo botão Remover imagem
+EMSCRIPTEN_KEEPALIVE void api_clear_image(void)
+{
+    app_clear_image();
+}

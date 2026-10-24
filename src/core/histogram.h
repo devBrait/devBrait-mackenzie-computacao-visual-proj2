@@ -14,6 +14,10 @@ void compute_histogram(const GrayImage *image, size_t histogram[HISTOGRAM_LEVELS
 // Limiar que melhor separa as duas classes do histograma, pelo método de Otsu
 int otsu_threshold(const size_t histogram[HISTOGRAM_LEVELS]);
 
+// Diferença entre as médias de cinza das duas classes separadas pelo limiar.
+// Perto de zero quer dizer que a imagem não tem objetos, só ruído
+double class_contrast(const size_t histogram[HISTOGRAM_LEVELS], int threshold);
+
 // Pixels acima do limiar viram 255 e os demais viram 0
 void binarize(const GrayImage *source, GrayImage *destination, int threshold);
 

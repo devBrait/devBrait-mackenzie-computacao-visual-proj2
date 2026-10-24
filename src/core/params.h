@@ -17,6 +17,11 @@
 #define OPENING_ITERATIONS 2
 #define CLOSING_ITERATIONS 2
 
+// Diferença mínima entre as médias de fundo e objeto para aceitar o limiar.
+// O Otsu sempre acha um limiar, até numa foto toda preta, e abaixo disso a
+// separação é só ruído. As fotos de teste ficam entre 76 e 197
+#define MIN_CONTRAST 30.0
+
 // Componentes menores que esta fração da imagem são ruído e saem antes
 // da mediana, senão muita sujeira puxaria a mediana para baixo
 #define NOISE_AREA_FRACTION 0.0002
@@ -29,8 +34,14 @@
 #define ISOLATED_MIN_FACTOR 0.5
 #define ISOLATED_MAX_FACTOR 1.5
 
-// Componentes maiores que este fator vezes a referência são peças encostadas
-#define TOUCHING_FACTOR 1.5
+// Componentes maiores que este fator vezes a referência podem ser peças
+// encostadas e passam pelo teste de erosão. Duas peças juntas somam perto
+// de 2, e abaixo disso fica a folga para uma peça que cresceu com a sombra
+#define TOUCHING_FACTOR 1.75
+
+// Erosões do teste, em fração do raio de uma peça. Pouco não separa peças
+// encostadas e muito apaga objetos finos
+#define SPLIT_EROSION_FACTOR 0.4
 
 // Cor das caixas e da etiqueta do número na aba Resultado, azul claro #38BDF8
 #define MARK_COLOR_RED 0x38

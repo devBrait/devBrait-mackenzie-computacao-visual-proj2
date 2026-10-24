@@ -13,4 +13,7 @@ bool app_set_display_stage(int stage);
 // Objetos contados na imagem atual, zero se não houver imagem
 int app_get_count(void);
 
+// Libera a imagem atual e volta ao estado sem imagem
+void app_clear_image(void);
+
 #endif

@@ -64,6 +64,33 @@ int otsu_threshold(const size_t histogram[HISTOGRAM_LEVELS])
     return bestThreshold;
 }
 
+double class_contrast(const size_t histogram[HISTOGRAM_LEVELS], int threshold)
+{
+    double backgroundWeight = 0.0;
+    double backgroundSum = 0.0;
+    double foregroundWeight = 0.0;
+    double foregroundSum = 0.0;
+
+    for (int level = 0; level < HISTOGRAM_LEVELS; level++) {
+        double weight = (double)histogram[level];
+
+        if (level <= threshold) {
+            backgroundWeight += weight;
+            backgroundSum += level * weight;
+        } else {
+            foregroundWeight += weight;
+            foregroundSum += level * weight;
+        }
+    }
+
+    // Uma classe vazia quer dizer que a imagem tem um tom só
+    if (backgroundWeight == 0.0 || foregroundWeight == 0.0) {
+        return 0.0;
+    }
+
+    return foregroundSum / foregroundWeight - backgroundSum / backgroundWeight;
+}
+
 void binarize(const GrayImage *source, GrayImage *destination, int threshold)
 {
     size_t count = (size_t)source->width * (size_t)source->height;

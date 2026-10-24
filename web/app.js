@@ -7,6 +7,7 @@
     const frame = document.querySelector('.image-frame');
     const status = document.getElementById('status');
     const count = document.getElementById('count');
+    const removeButton = document.getElementById('remove-button');
     const tabs = Array.from(document.querySelectorAll('.tab'));
 
     let runtimeReady = false;
@@ -49,11 +50,24 @@
         status.classList.toggle('is-error', isError);
     }
 
+    // O processamento trava a página até terminar, então a mensagem
+    // precisa ser desenhada antes dele começar
+    function waitForPaint() {
+        return new Promise(function (resolve) {
+            requestAnimationFrame(function () {
+                setTimeout(resolve, 0);
+            });
+        });
+    }
+
     async function loadFile(file) {
         if (!runtimeReady) {
             showStatus('Aguarde, a aplicação ainda está carregando.', true);
             return;
         }
+
+        showStatus('Processando ' + file.name + '…', false);
+        await waitForPaint();
 
         const bytes = new Uint8Array(await file.arrayBuffer());
         const pointer = Module._malloc(bytes.length);
@@ -71,11 +85,21 @@
         if (loaded) {
             frame.classList.add('has-image');
             count.textContent = Module._api_get_count();
+            removeButton.hidden = false;
             showStatus(file.name, false);
         } else {
             showStatus('Não foi possível abrir ' + file.name + '. Use uma imagem PNG, JPG ou BMP.', true);
         }
     }
+
+    removeButton.addEventListener('click', function () {
+        Module._api_clear_image();
+
+        frame.classList.remove('has-image');
+        count.textContent = '0';
+        removeButton.hidden = true;
+        showStatus('', false);
+    });
 
     fileInput.addEventListener('change', function () {
         const file = fileInput.files[0];

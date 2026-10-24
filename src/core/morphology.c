@@ -75,6 +75,21 @@ bool morphology_open(GrayImage *binary, int iterations)
     return true;
 }
 
+bool morphology_erode(GrayImage *binary, int iterations)
+{
+    GrayImage temp;
+
+    if (!gray_image_alloc(&temp, binary->width, binary->height)) {
+        return false;
+    }
+
+    repeat_spread(binary, &temp, BLACK, iterations);
+
+    gray_image_free(&temp);
+
+    return true;
+}
+
 bool morphology_close(GrayImage *binary, int iterations)
 {
     GrayImage temp;

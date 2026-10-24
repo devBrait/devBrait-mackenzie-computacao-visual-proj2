@@ -11,6 +11,7 @@
     --color-accent: #0070F3;
     --color-accent-hover: #0761D1;
     --color-error: #FF4D4F;
+    --color-error-hover: #E5383B;
 
     --font-sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-mono: "Geist Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -318,6 +319,29 @@ input {
     border-color: var(--color-accent-hover);
 }
 
+/* Vermelho porque remover descarta a imagem e a contagem */
+.button-danger {
+    width: 100%;
+    background: var(--color-error);
+    border: 1px solid var(--color-error);
+    color: #FFFFFF;
+}
+
+.button-danger:hover {
+    background: var(--color-error-hover);
+    border-color: var(--color-error-hover);
+}
+
+.button-danger:focus-visible {
+    outline: 2px solid var(--color-text);
+    outline-offset: 2px;
+}
+
+/* O display do botão venceria o atributo hidden */
+.button[hidden] {
+    display: none;
+}
+
 /* Mensagem abaixo do envio */
 
 .status {
@@ -333,4 +357,85 @@ input {
 
 .status.is-error {
     color: var(--color-error);
+}
+
+/* Telas médias, painel mais estreito e cabeçalho mais curto */
+
+@media (max-width: 1280px) {
+    :root {
+        --panel-width: 280px;
+    }
+
+    .header-meta {
+        overflow: hidden;
+        max-width: 60%;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+/* Telas estreitas, o painel desce para baixo da imagem e a página rola */
+
+@media (max-width: 1024px) {
+    html,
+    body {
+        height: auto;
+    }
+
+    .header {
+        padding: 0 var(--gap);
+    }
+
+    .header-meta {
+        display: none;
+    }
+
+    .layout {
+        grid-template-columns: minmax(0, 1fr);
+        height: auto;
+    }
+
+    .viewer {
+        padding: var(--gap);
+    }
+
+    /* A moldura acompanha a proporção da foto, sem sobrar faixa vazia */
+    .image-frame {
+        flex: none;
+        min-height: 240px;
+    }
+
+    /* Abas roláveis de lado em vez de quebrar a linha */
+    .tabs {
+        overflow-x: auto;
+    }
+
+    .tab {
+        flex: none;
+    }
+
+    .panel {
+        border-left: 0;
+        border-top: 1px solid var(--color-border);
+        overflow-y: visible;
+    }
+}
+
+/* Celulares, as cinco abas cabem na largura sem rolar */
+
+@media (max-width: 600px) {
+    .tabs {
+        gap: 0;
+    }
+
+    .tab {
+        flex: 1 1 auto;
+        padding: 8px 4px 12px;
+        font-size: 13px;
+    }
+
+    .tab.is-active::after {
+        left: 4px;
+        right: 4px;
+    }
 }
