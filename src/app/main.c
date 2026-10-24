@@ -157,6 +157,10 @@ static bool replace_image(AppState *state, RgbaImage *loaded)
             originalHeight, state->image.width, state->image.height);
     SDL_Log("Limiar de Otsu %d, fundo %s", state->pipeline.threshold,
             state->pipeline.inverted ? "claro (imagem invertida)" : "escuro");
+    SDL_Log("Componentes rotulados %d, descartados por área %d, objetos contados %d",
+            state->pipeline.labeledCount,
+            state->pipeline.labeledCount - state->pipeline.objectCount,
+            state->pipeline.objectCount);
     return true;
 }
 

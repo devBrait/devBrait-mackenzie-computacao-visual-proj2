@@ -48,6 +48,26 @@ bool pipeline_process(Pipeline *pipeline, const RgbaImage *source)
         return false;
     }
 
+    if (!label_components(&pipeline->morphology, &pipeline->components)) {
+        pipeline_free(pipeline);
+        return false;
+    }
+
+    pipeline->labeledCount = pipeline->components.count;
+
+    double noiseArea = NOISE_AREA_FRACTION * (double)count;
+    double median = 0.0;
+
+    remove_small_components(&pipeline->components, noiseArea);
+
+    if (!median_component_area(&pipeline->components, &median)) {
+        pipeline_free(pipeline);
+        return false;
+    }
+
+    remove_small_components(&pipeline->components, MIN_AREA_MEDIAN_FACTOR * median);
+    pipeline->objectCount = pipeline->components.count;
+
     return true;
 }
 
@@ -61,11 +81,14 @@ void pipeline_free(Pipeline *pipeline)
     gray_image_free(&pipeline->smoothed);
     gray_image_free(&pipeline->binary);
     gray_image_free(&pipeline->morphology);
+    component_list_free(&pipeline->components);
 
     pipeline->width = 0;
     pipeline->height = 0;
     pipeline->threshold = 0;
     pipeline->inverted = false;
+    pipeline->labeledCount = 0;
+    pipeline->objectCount = 0;
 }
 
 const GrayImage *pipeline_stage_image(const Pipeline *pipeline, PipelineStage stage)

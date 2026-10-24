@@ -17,4 +17,11 @@
 #define OPENING_ITERATIONS 2
 #define CLOSING_ITERATIONS 2
 
+// Componentes menores que esta fração da imagem são ruído e saem antes
+// da mediana, senão muita sujeira puxaria a mediana para baixo
+#define NOISE_AREA_FRACTION 0.0002
+
+// Depois do ruído, saem os menores que esta fração da área mediana
+#define MIN_AREA_MEDIAN_FACTOR 0.25
+
 #endif

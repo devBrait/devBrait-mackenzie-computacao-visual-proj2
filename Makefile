@@ -6,7 +6,7 @@
 
 APP_NAME = counter
 
-SOURCES = src/app/main.c src/core/image.c src/core/filter.c src/core/histogram.c src/core/morphology.c src/core/pipeline.c
+SOURCES = src/app/main.c src/core/image.c src/core/filter.c src/core/histogram.c src/core/morphology.c src/core/labeling.c src/core/pipeline.c
 # Qualquer header alterado recompila tudo, o projeto é pequeno
 HEADERS = $(wildcard src/*/*.h)
 

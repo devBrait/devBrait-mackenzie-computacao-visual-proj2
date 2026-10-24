@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "image.h"
+#include "labeling.h"
 
 // Mesma ordem das abas da página e das teclas 1 a 5 do nativo
 typedef enum PipelineStage {
@@ -27,6 +28,13 @@ typedef struct Pipeline {
     // Guardados para o console mostrar o que o Otsu decidiu
     int threshold;
     bool inverted;
+
+    // Objetos que sobraram dos filtros de área
+    ComponentList components;
+
+    // Componentes antes dos filtros, para o console mostrar quantos saíram
+    int labeledCount;
+    int objectCount;
 } Pipeline;
 
 // Aloca os buffers e roda todas as etapas sobre a imagem de origem.
