@@ -34,6 +34,11 @@ typedef struct Pipeline {
 
     // Componentes antes dos filtros, para o console mostrar quantos saíram
     int labeledCount;
+
+    // Área de uma peça isolada, usada para dividir as peças encostadas
+    double referenceArea;
+
+    // Soma das peças de todos os componentes, é a contagem final
     int objectCount;
 } Pipeline;
 

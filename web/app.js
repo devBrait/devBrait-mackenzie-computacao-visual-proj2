@@ -6,6 +6,7 @@
     const dropzone = document.querySelector('.dropzone');
     const frame = document.querySelector('.image-frame');
     const status = document.getElementById('status');
+    const count = document.getElementById('count');
     const tabs = Array.from(document.querySelectorAll('.tab'));
 
     let runtimeReady = false;
@@ -69,6 +70,7 @@
 
         if (loaded) {
             frame.classList.add('has-image');
+            count.textContent = Module._api_get_count();
             showStatus(file.name, false);
         } else {
             showStatus('Não foi possível abrir ' + file.name + '. Use uma imagem PNG, JPG ou BMP.', true);

@@ -10,4 +10,7 @@ bool app_load_image_from_memory(const unsigned char *data, size_t size);
 // Troca a etapa exibida. Recusa valores fora das etapas existentes
 bool app_set_display_stage(int stage);
 
+// Objetos contados na imagem atual, zero se não houver imagem
+int app_get_count(void);
+
 #endif

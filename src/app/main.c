@@ -4,6 +4,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "app/app.h"
@@ -21,6 +22,9 @@ static const Uint8 BACKGROUND_GREEN = 0x0A;
 static const Uint8 BACKGROUND_BLUE = 0x0A;
 
 static const int RGBA_BYTES_PER_PIXEL = 4;
+
+// Número escuro sobre a etiqueta clara fica legível em qualquer foto
+static const Uint8 MARK_TEXT_GRAY = 0x0A;
 
 // Nomes para o console, na ordem de PipelineStage
 static const char *STAGE_NAMES[STAGE_COUNT] = {
@@ -99,7 +103,23 @@ static bool upload_gray(SDL_Texture *texture, const GrayImage *gray)
     return true;
 }
 
-// Desenhar em coordenadas da imagem deixa as marcações futuras alinhadas
+// Resultado mostra a foto colorida, as outras etapas mostram o buffer cinza
+static bool upload_stage(SDL_Texture *texture, const RgbaImage *image,
+                         const Pipeline *pipeline, PipelineStage stage)
+{
+    if (stage != STAGE_RESULT) {
+        return upload_gray(texture, pipeline_stage_image(pipeline, stage));
+    }
+
+    if (!SDL_UpdateTexture(texture, NULL, image->pixels, image->width * RGBA_BYTES_PER_PIXEL)) {
+        SDL_Log("Falha ao enviar a foto para a textura: %s", SDL_GetError());
+        return false;
+    }
+
+    return true;
+}
+
+// Desenhar em coordenadas da imagem deixa as marcações alinhadas
 // em qualquer tamanho de janela
 static void resize_display(AppState *state, int width, int height)
 {
@@ -133,8 +153,7 @@ static bool replace_image(AppState *state, RgbaImage *loaded)
     }
 
     SDL_Texture *texture = create_texture(state->renderer, loaded->width, loaded->height);
-    if (texture == NULL ||
-        !upload_gray(texture, pipeline_stage_image(&pipeline, state->stage))) {
+    if (texture == NULL || !upload_stage(texture, loaded, &pipeline, state->stage)) {
         if (texture != NULL) {
             SDL_DestroyTexture(texture);
         }
@@ -157,10 +176,12 @@ static bool replace_image(AppState *state, RgbaImage *loaded)
             originalHeight, state->image.width, state->image.height);
     SDL_Log("Limiar de Otsu %d, fundo %s", state->pipeline.threshold,
             state->pipeline.inverted ? "claro (imagem invertida)" : "escuro");
-    SDL_Log("Componentes rotulados %d, descartados por área %d, objetos contados %d",
+    SDL_Log("Componentes rotulados %d, descartados por área %d, restantes %d",
             state->pipeline.labeledCount,
-            state->pipeline.labeledCount - state->pipeline.objectCount,
-            state->pipeline.objectCount);
+            state->pipeline.labeledCount - state->pipeline.components.count,
+            state->pipeline.components.count);
+    SDL_Log("Área de referência %.0f pixels, objetos contados %d",
+            state->pipeline.referenceArea, state->pipeline.objectCount);
     return true;
 }
 
@@ -178,8 +199,17 @@ bool app_set_display_stage(int stage)
         return true;
     }
 
-    return upload_gray(appState->texture,
-                       pipeline_stage_image(&appState->pipeline, appState->stage));
+    return upload_stage(appState->texture, &appState->image, &appState->pipeline,
+                        appState->stage);
+}
+
+int app_get_count(void)
+{
+    if (appState == NULL) {
+        return 0;
+    }
+
+    return appState->pipeline.objectCount;
 }
 
 bool app_load_image_from_memory(const unsigned char *data, size_t size)
@@ -259,6 +289,82 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
     return SDL_APP_CONTINUE;
 }
 
+// Caixa vazada com a espessura pedida, o SDL só desenha linhas de 1 pixel
+static void draw_box(SDL_Renderer *renderer, float x, float y, float width, float height,
+                     float thickness)
+{
+    SDL_FRect edges[4] = {
+        {x, y, width, thickness},
+        {x, y + height - thickness, width, thickness},
+        {x, y, thickness, height},
+        {x + width - thickness, y, thickness, height},
+    };
+
+    SDL_RenderFillRects(renderer, edges, 4);
+}
+
+// Etiqueta colorida com o número, em cima da caixa ou dentro dela no topo da foto.
+// Peças encostadas mostram a faixa de números, como 7-8
+static void draw_label(SDL_Renderer *renderer, const Component *component, int firstNumber,
+                       float textScale, int imageWidth)
+{
+    char text[24];
+    int lastNumber = firstNumber + component->pieces - 1;
+
+    if (lastNumber > firstNumber) {
+        snprintf(text, sizeof(text), "%d-%d", firstNumber, lastNumber);
+    } else {
+        snprintf(text, sizeof(text), "%d", firstNumber);
+    }
+
+    float padding = textScale;
+    float charSize = SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE * textScale;
+    float width = SDL_strlen(text) * charSize + 2.0f * padding;
+    float height = charSize + 2.0f * padding;
+    float x = (float)component->minX;
+    float y = component->minY - height;
+
+    if (y < 0.0f) {
+        y = (float)component->minY;
+    }
+
+    if (x + width > imageWidth) {
+        x = imageWidth - width;
+    }
+
+    SDL_RenderFillRect(renderer, &(SDL_FRect){x, y, width, height});
+
+    // A fonte do SDL tem 8 pixels, então a escala aumenta o número
+    SDL_SetRenderDrawColor(renderer, MARK_TEXT_GRAY, MARK_TEXT_GRAY, MARK_TEXT_GRAY,
+                           SDL_ALPHA_OPAQUE);
+    SDL_SetRenderScale(renderer, textScale, textScale);
+    SDL_RenderDebugText(renderer, (x + padding) / textScale, (y + padding) / textScale, text);
+    SDL_SetRenderScale(renderer, 1.0f, 1.0f);
+}
+
+static void draw_marks(const AppState *state)
+{
+    int largestSide = SDL_max(state->image.width, state->image.height);
+    float thickness = SDL_max(1.0f, SDL_roundf(largestSide * MARK_LINE_FRACTION));
+    float textScale = SDL_max(1.0f, SDL_roundf(largestSide * MARK_TEXT_FRACTION /
+                                               SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE));
+    const ComponentList *components = &state->pipeline.components;
+    int nextNumber = 1;
+
+    for (int i = 0; i < components->count; i++) {
+        const Component *component = &components->items[i];
+
+        // A caixa guarda os limites incluídos, por isso o mais 1
+        SDL_SetRenderDrawColor(state->renderer, MARK_COLOR_RED, MARK_COLOR_GREEN,
+                               MARK_COLOR_BLUE, SDL_ALPHA_OPAQUE);
+        draw_box(state->renderer, (float)component->minX, (float)component->minY,
+                 (float)(component->maxX - component->minX + 1),
+                 (float)(component->maxY - component->minY + 1), thickness);
+        draw_label(state->renderer, component, nextNumber, textScale, state->image.width);
+        nextNumber += component->pieces;
+    }
+}
+
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
     AppState *state = appstate;
@@ -269,6 +375,10 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
     if (state->texture != NULL) {
         SDL_RenderTexture(state->renderer, state->texture, NULL, NULL);
+
+        if (state->stage == STAGE_RESULT) {
+            draw_marks(state);
+        }
     }
 
     SDL_RenderPresent(state->renderer);

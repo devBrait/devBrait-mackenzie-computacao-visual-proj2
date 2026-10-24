@@ -24,4 +24,22 @@
 // Depois do ruído, saem os menores que esta fração da área mediana
 #define MIN_AREA_MEDIAN_FACTOR 0.25
 
+// Peça isolada é a que tem entre 0,5 e 1,5 vezes a área mediana. A mediana
+// delas é a área de referência de uma peça
+#define ISOLATED_MIN_FACTOR 0.5
+#define ISOLATED_MAX_FACTOR 1.5
+
+// Componentes maiores que este fator vezes a referência são peças encostadas
+#define TOUCHING_FACTOR 1.5
+
+// Cor das caixas e da etiqueta do número na aba Resultado, azul claro #38BDF8
+#define MARK_COLOR_RED 0x38
+#define MARK_COLOR_GREEN 0xBD
+#define MARK_COLOR_BLUE 0xF8
+
+// Espessura da caixa e altura do número em fração do lado maior da imagem,
+// assim as marcações ficam do mesmo tamanho na tela em qualquer foto
+#define MARK_LINE_FRACTION 0.003
+#define MARK_TEXT_FRACTION 0.025
+
 #endif

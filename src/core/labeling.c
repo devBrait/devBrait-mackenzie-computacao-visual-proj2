@@ -1,5 +1,7 @@
 #include "labeling.h"
 
+#include <float.h>
+#include <math.h>
 #include <stdlib.h>
 
 static const unsigned char WHITE = 255;
@@ -33,7 +35,7 @@ static Component flood_component(const GrayImage *binary, unsigned char *visited
 {
     int width = binary->width;
     int height = binary->height;
-    Component component = {0, width, height, -1, -1, 0.0, 0.0};
+    Component component = {0, width, height, -1, -1, 0.0, 0.0, 1};
     double sumX = 0.0;
     double sumY = 0.0;
     int head = 0;
@@ -171,7 +173,9 @@ static int compare_ints(const void *a, const void *b)
     return (first > second) - (first < second);
 }
 
-bool median_component_area(const ComponentList *list, double *median)
+// Mediana só das áreas entre minArea e maxArea, ou zero se nenhuma couber
+static bool median_area_in_range(const ComponentList *list, double minArea, double maxArea,
+                                 double *median)
 {
     *median = 0.0;
 
@@ -181,26 +185,76 @@ bool median_component_area(const ComponentList *list, double *median)
 
     // Ordena uma cópia das áreas para não mexer na ordem da lista
     int *areas = malloc(sizeof(int) * (size_t)list->count);
+    int count = 0;
 
     if (areas == NULL) {
         return false;
     }
 
     for (int i = 0; i < list->count; i++) {
-        areas[i] = list->items[i].area;
+        int area = list->items[i].area;
+
+        if (area >= minArea && area <= maxArea) {
+            areas[count] = area;
+            count++;
+        }
     }
 
-    qsort(areas, (size_t)list->count, sizeof(int), compare_ints);
+    if (count > 0) {
+        qsort(areas, (size_t)count, sizeof(int), compare_ints);
 
-    int middle = list->count / 2;
+        int middle = count / 2;
 
-    if (list->count % 2 == 1) {
-        *median = areas[middle];
-    } else {
-        *median = (areas[middle - 1] + areas[middle]) / 2.0;
+        if (count % 2 == 1) {
+            *median = areas[middle];
+        } else {
+            *median = (areas[middle - 1] + areas[middle]) / 2.0;
+        }
     }
 
     free(areas);
+
+    return true;
+}
+
+bool median_component_area(const ComponentList *list, double *median)
+{
+    return median_area_in_range(list, 0.0, DBL_MAX, median);
+}
+
+bool estimate_touching_pieces(ComponentList *list, double isolatedMin, double isolatedMax,
+                              double touchingFactor, double *referenceArea, int *total)
+{
+    double median = 0.0;
+    double reference = 0.0;
+
+    *referenceArea = 0.0;
+    *total = 0;
+
+    // A mediana geral é puxada para cima pelos grupos, então a referência
+    // usa só os componentes com cara de peça sozinha
+    if (!median_component_area(list, &median) ||
+        !median_area_in_range(list, isolatedMin * median, isolatedMax * median, &reference)) {
+        return false;
+    }
+
+    if (reference <= 0.0) {
+        reference = median;
+    }
+
+    for (int i = 0; i < list->count; i++) {
+        Component *component = &list->items[i];
+
+        component->pieces = 1;
+
+        if (reference > 0.0 && component->area > touchingFactor * reference) {
+            component->pieces = (int)lround(component->area / reference);
+        }
+
+        *total += component->pieces;
+    }
+
+    *referenceArea = reference;
 
     return true;
 }

@@ -17,6 +17,9 @@ typedef struct Component {
 
     double centroidX;
     double centroidY;
+
+    // Quantas peças o componente representa, mais de 1 quando estão encostadas
+    int pieces;
 } Component;
 
 typedef struct ComponentList {
@@ -34,5 +37,12 @@ void remove_small_components(ComponentList *list, double minArea);
 
 // Mediana das áreas, ou zero se a lista estiver vazia
 bool median_component_area(const ComponentList *list, double *median);
+
+// Estima quantas peças cada componente tem pela área de uma peça isolada.
+// A referência é a mediana dos componentes entre isolatedMin e isolatedMax
+// vezes a mediana geral. Acima de touchingFactor vezes a referência, o
+// componente vale round(área / referência) peças
+bool estimate_touching_pieces(ComponentList *list, double isolatedMin, double isolatedMax,
+                              double touchingFactor, double *referenceArea, int *total);
 
 #endif

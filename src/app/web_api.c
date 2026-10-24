@@ -17,3 +17,9 @@ EMSCRIPTEN_KEEPALIVE int api_set_display_stage(int stage)
 {
     return app_set_display_stage(stage) ? 1 : 0;
 }
+
+// Lido pelo JS depois de cada upload para mostrar a contagem na página
+EMSCRIPTEN_KEEPALIVE int api_get_count(void)
+{
+    return app_get_count();
+}

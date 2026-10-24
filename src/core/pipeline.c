@@ -66,7 +66,13 @@ bool pipeline_process(Pipeline *pipeline, const RgbaImage *source)
     }
 
     remove_small_components(&pipeline->components, MIN_AREA_MEDIAN_FACTOR * median);
-    pipeline->objectCount = pipeline->components.count;
+
+    if (!estimate_touching_pieces(&pipeline->components, ISOLATED_MIN_FACTOR,
+                                  ISOLATED_MAX_FACTOR, TOUCHING_FACTOR,
+                                  &pipeline->referenceArea, &pipeline->objectCount)) {
+        pipeline_free(pipeline);
+        return false;
+    }
 
     return true;
 }
@@ -88,6 +94,7 @@ void pipeline_free(Pipeline *pipeline)
     pipeline->threshold = 0;
     pipeline->inverted = false;
     pipeline->labeledCount = 0;
+    pipeline->referenceArea = 0.0;
     pipeline->objectCount = 0;
 }
 
