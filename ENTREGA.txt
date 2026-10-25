@@ -1,0 +1,108 @@
+UNIVERSIDADE PRESBITERIANA MACKENZIE
+Computação Visual, 7º semestre
+Projeto 2: Contador de Objetos
+
+INTEGRANTES
+
+  Enzo Ponte Gamberi                 RA 10389931
+  Luís Henrique Ribeiro Fernandes    RA 10420079
+  Raphael Grizante da Silva          RA 10416979
+  Vinícius Brait Lorimier            RA 10420046
+
+LINKS
+
+  Repositório:     https://github.com/devBrait/devBrait-mackenzie-computacao-visual-proj2
+  Versão online:   https://devbrait.github.io/devBrait-mackenzie-computacao-visual-proj2/
+  Vídeo:           
+
+DESCRIÇÃO
+
+  O programa recebe a foto de objetos sobre um fundo liso, conta quantos
+  são e desenha uma caixa com um número em cima de cada um.
+
+  Escrevemos em C com SDL3 e compilamos para WebAssembly com o Emscripten.
+  Sem OpenCV. Cada algoritmo foi implementado por nós: cinza pela
+  luminância Rec. 709, Gaussiano separável, limiar de Otsu, abertura e
+  fechamento morfológicos, rotulagem de componentes conexos, filtros de
+  área e a separação de peças encostadas por erosão. De biblioteca externa
+  de imagem só entrou o stb_image, que decodifica PNG, JPG e BMP.
+
+  O README.md detalha cada etapa, os parâmetros e os resultados nas fotos
+  de teste.
+
+COMO USAR
+
+  1. Abra a versão online, ou rode localmente (veja abaixo).
+  2. Escolha ou arraste uma foto PNG, JPG ou BMP.
+  3. A aba Resultado mostra os objetos marcados e o painel mostra a
+     contagem. As outras abas mostram cada etapa do processamento.
+
+  A pasta images tem 7 fotos de teste, e o número no nome de cada uma é a
+  contagem real. Todas saem certas.
+
+COMO COMPILAR (WINDOWS)
+
+  Usamos MSYS2 e emsdk. Os comandos rodam no terminal MSYS2 MINGW64,
+  menos os do passo 2.
+
+  1. Instalar o MSYS2 (https://www.msys2.org) e, no terminal MINGW64:
+
+       pacman -S make mingw-w64-x86_64-gcc mingw-w64-x86_64-sdl3 mingw-w64-x86_64-pkgconf
+
+  2. Instalar o emsdk em C:\emsdk, versão 6.0.13. Estes vão no PowerShell
+     ou no cmd, porque o MSYS2 apaga as barras invertidas:
+
+       git clone https://github.com/emscripten-core/emsdk.git C:\emsdk
+       cd C:\emsdk
+       emsdk install 6.0.13
+       emsdk activate 6.0.13
+
+     Se o emsdk estiver em outra pasta: make web EMSDK=/d/emsdk
+
+  3. Na pasta do projeto:
+
+       export EMCC_USE_CURL=1     (só na primeira vez, veja abaixo)
+       make web
+       make serve
+
+     Abrir http://127.0.0.1:8000 no navegador.
+
+  Versão nativa, para depurar:
+
+       make native
+       ./build/native/counter.exe images/cafe_16.jpg
+
+     As teclas 1 a 5 trocam a etapa exibida.
+
+PROBLEMAS CONHECIDOS
+
+  - Se o navegador forçar HTTPS no localhost, use http://127.0.0.1:8000.
+  - Depois de recompilar, recarregue a página com Ctrl+F5.
+
+REFERÊNCIAS
+
+  GONZALEZ, R. C.; WOODS, R. E. Processamento Digital de Imagens. 3. ed.
+  São Paulo: Pearson Prentice Hall, 2010.
+
+  OTSU, N. A Threshold Selection Method from Gray-Level Histograms. IEEE
+  Transactions on Systems, Man, and Cybernetics, v. 9, n. 1, p. 62-66, 1979.
+
+  WU, K.; OTOO, E.; SUZUKI, K. Optimizing Two-Pass Connected-Component
+  Labeling Algorithms. Pattern Analysis and Applications, v. 12, n. 2,
+  p. 117-135, 2009.
+
+  ITU-R. Recommendation BT.709: Parameter values for the HDTV standards for
+  production and international programme exchange.
+
+  BARRETT, S. stb_image. Disponível em: https://github.com/nothings/stb
+
+  HUTTON, T. sdl-canvas-wasm: minimal example of animating the HTML5 canvas
+  from C++ using SDL through WebAssembly. Disponível em:
+  https://github.com/timhutton/sdl-canvas-wasm
+
+  NISSAN, S. sdl-wasm: compiling C/SDL to WebAssembly and binding it to an
+  HTML5 canvas. Disponível em: https://github.com/shlomnissan/sdl-wasm
+
+  SDL3 Wiki. Disponível em: https://wiki.libsdl.org/SDL3
+
+  Emscripten Documentation. Disponível em: https://emscripten.org/docs
