@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Contador de Objetos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="brand">
+            <span class="brand-mark" aria-hidden="true"></span>
+            <h1 class="brand-title">Contador de Objetos</h1>
+        </div>
+        <span class="header-meta">Universidade Presbiteriana Mackenzie · 7º Semestre · Computação Visual · Projeto 2</span>
+    </header>
+
+    <main class="layout">
+        <section class="viewer">
+            <!-- data-stage segue a ordem de PipelineStage no C -->
+            <nav class="tabs" role="tablist" aria-label="Etapa exibida">
+                <button class="tab" type="button" role="tab" aria-selected="false" data-stage="0">Cinza</button>
+                <button class="tab" type="button" role="tab" aria-selected="false" data-stage="1">Suavizada</button>
+                <button class="tab" type="button" role="tab" aria-selected="false" data-stage="2">Binária</button>
+                <button class="tab" type="button" role="tab" aria-selected="false" data-stage="3">Morfologia</button>
+                <button class="tab is-active" type="button" role="tab" aria-selected="true" data-stage="4">Resultado</button>
+            </nav>
+
+            <div class="image-frame">
+                <!-- O SDL desenha neste canvas, o id precisa ser canvas -->
+                <canvas id="canvas" class="image-canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+                <div class="empty-state">
+                    <span class="empty-title">Nenhuma imagem carregada</span>
+                    <span class="empty-hint">Escolha ou arraste uma foto para começar</span>
+                </div>
+            </div>
+        </section>
+
+        <aside class="panel">
+            <section class="card count-card">
+                <span class="label">Objetos encontrados</span>
+                <output id="count" class="count">0</output>
+            </section>
+
+            <label class="dropzone">
+                <input id="file-input" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/bmp">
+                <span class="button button-primary">Escolher imagem</span>
+                <span class="dropzone-hint">ou arraste uma foto para cá</span>
+                <span class="dropzone-formats">PNG, JPG ou BMP</span>
+            </label>
+
+            <button id="remove-button" class="button button-danger" type="button" hidden>Remover imagem</button>
+
+            <p id="status" class="status" role="status" aria-live="polite"></p>
+        </aside>
+    </main>
+
+    <script>
+        // O Emscripten procura o canvas neste objeto antes de iniciar o wasm
+        var Module = {
+            canvas: document.getElementById('canvas'),
+        };
+    </script>
+    <!-- Antes do wasm para registrar os callbacks do Module a tempo -->
+    <script src="app.js"></script>
+    {{{ SCRIPT }}}
+</body>
+</html>

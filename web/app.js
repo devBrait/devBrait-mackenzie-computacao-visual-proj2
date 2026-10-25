@@ -1,0 +1,164 @@
+// Liga a página ao WebAssembly. O Module é criado no index.html
+(function () {
+    'use strict';
+
+    const fileInput = document.getElementById('file-input');
+    const dropzone = document.querySelector('.dropzone');
+    const frame = document.querySelector('.image-frame');
+    const status = document.getElementById('status');
+    const count = document.getElementById('count');
+    const removeButton = document.getElementById('remove-button');
+    const tabs = Array.from(document.querySelectorAll('.tab'));
+
+    let runtimeReady = false;
+    // Conta entradas e saídas porque cada elemento filho dispara dragleave
+    let dragDepth = 0;
+
+    Module.onRuntimeInitialized = function () {
+        runtimeReady = true;
+
+        // A aba pode ter sido trocada enquanto o wasm carregava
+        const active = tabs.find(function (tab) {
+            return tab.classList.contains('is-active');
+        });
+
+        Module._api_set_display_stage(Number(active.dataset.stage));
+    };
+
+    function selectTab(selected) {
+        tabs.forEach(function (tab) {
+            const isActive = tab === selected;
+
+            tab.classList.toggle('is-active', isActive);
+            tab.setAttribute('aria-selected', String(isActive));
+        });
+
+        // Antes do wasm pronto só a aba muda, o C recebe a etapa ao iniciar
+        if (runtimeReady) {
+            Module._api_set_display_stage(Number(selected.dataset.stage));
+        }
+    }
+
+    tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            selectTab(tab);
+        });
+    });
+
+    function showStatus(message, isError) {
+        status.textContent = message;
+        status.classList.toggle('is-error', isError);
+    }
+
+    // O processamento trava a página até terminar, então a mensagem
+    // precisa ser desenhada antes dele começar
+    function waitForPaint() {
+        return new Promise(function (resolve) {
+            requestAnimationFrame(function () {
+                setTimeout(resolve, 0);
+            });
+        });
+    }
+
+    async function loadFile(file) {
+        if (!runtimeReady) {
+            showStatus('Aguarde, a aplicação ainda está carregando.', true);
+            return;
+        }
+
+        showStatus('Processando ' + file.name + '…', false);
+        await waitForPaint();
+
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const pointer = Module._malloc(bytes.length);
+        if (pointer === 0) {
+            showStatus('Memória insuficiente para abrir ' + file.name + '.', true);
+            return;
+        }
+
+        // HEAPU8 é lido depois do malloc porque a memória pode ter crescido
+        Module.HEAPU8.set(bytes, pointer);
+        const loaded = Module._api_load_image(pointer, bytes.length);
+        // O C já copiou os pixels decodificados, então o arquivo pode sair
+        Module._free(pointer);
+
+        if (loaded) {
+            frame.classList.add('has-image');
+            count.textContent = Module._api_get_count();
+            removeButton.hidden = false;
+            showStatus(file.name, false);
+        } else {
+            showStatus('Não foi possível abrir ' + file.name + '. Use uma imagem PNG, JPG ou BMP.', true);
+        }
+    }
+
+    removeButton.addEventListener('click', function () {
+        Module._api_clear_image();
+
+        frame.classList.remove('has-image');
+        count.textContent = '0';
+        removeButton.hidden = true;
+        showStatus('', false);
+    });
+
+    fileInput.addEventListener('change', function () {
+        const file = fileInput.files[0];
+        if (file) {
+            loadFile(file);
+        }
+        // Permite escolher o mesmo arquivo de novo
+        fileInput.value = '';
+    });
+
+    function hasFiles(event) {
+        return event.dataTransfer && Array.from(event.dataTransfer.types).includes('Files');
+    }
+
+    function stopDragging() {
+        dragDepth = 0;
+        dropzone.classList.remove('is-dragging');
+    }
+
+    // Captura na janela para aceitar a foto solta em qualquer lugar da página
+    // e antes do SDL, que também escuta soltar arquivos no canvas
+    window.addEventListener('dragenter', function (event) {
+        if (!hasFiles(event)) {
+            return;
+        }
+        event.preventDefault();
+        dragDepth++;
+        dropzone.classList.add('is-dragging');
+    }, true);
+
+    window.addEventListener('dragover', function (event) {
+        if (!hasFiles(event)) {
+            return;
+        }
+        // Sem isso o navegador abre a foto numa aba nova
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+    }, true);
+
+    window.addEventListener('dragleave', function (event) {
+        if (!hasFiles(event)) {
+            return;
+        }
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) {
+            stopDragging();
+        }
+    }, true);
+
+    window.addEventListener('drop', function (event) {
+        if (!hasFiles(event)) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        stopDragging();
+        const file = event.dataTransfer.files[0];
+        if (file) {
+            loadFile(file);
+        }
+    }, true);
+})();
