@@ -13,7 +13,8 @@ LINKS
 
   Repositório:     https://github.com/devBrait/devBrait-mackenzie-computacao-visual-proj2
   Versão online:   https://devbrait.github.io/devBrait-mackenzie-computacao-visual-proj2/
-  Vídeo:           
+  Release:         https://github.com/devBrait/devBrait-mackenzie-computacao-visual-proj2/releases/tag/v1.0.0
+  Vídeo:           https://www.youtube.com/watch?v=nPJU1PNZEHY
 
 DESCRIÇÃO
 
@@ -32,7 +33,9 @@ DESCRIÇÃO
 
 COMO USAR
 
-  1. Abra a versão online, ou rode localmente (veja abaixo).
+  1. Abra a versão online, baixe o web.zip da release ou compile
+     localmente (veja abaixo). O web.zip precisa de um servidor local,
+     por exemplo python -m http.server 8000 na pasta do index.html.
   2. Escolha ou arraste uma foto PNG, JPG ou BMP.
   3. A aba Resultado mostra os objetos marcados e o painel mostra a
      contagem. As outras abas mostram cada etapa do processamento.

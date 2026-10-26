@@ -6,6 +6,8 @@ Você envia a foto de alguns objetos sobre um fundo liso e o programa devolve qu
 
 - **Versão online:** https://devbrait.github.io/devBrait-mackenzie-computacao-visual-proj2/
 - **Repositório:** https://github.com/devBrait/devBrait-mackenzie-computacao-visual-proj2
+- **Release:** https://github.com/devBrait/devBrait-mackenzie-computacao-visual-proj2/releases/tag/v1.0.0
+- **Vídeo:** https://www.youtube.com/watch?v=nPJU1PNZEHY
 
 ## Integrantes
 
@@ -18,7 +20,7 @@ Você envia a foto de alguns objetos sobre um fundo liso e o programa devolve qu
 
 ## Como usar
 
-1. Abra a versão online, ou rode localmente com `make web && make serve` (veja [Como compilar](#como-compilar)).
+1. Abra a versão online, baixe o `web.zip` da [release](https://github.com/devBrait/devBrait-mackenzie-computacao-visual-proj2/releases/tag/v1.0.0) ou compile com `make web && make serve` (veja [Como compilar](#como-compilar)). O `web.zip` precisa de um servidor local, por exemplo `python -m http.server 8000` na pasta do `index.html`.
 2. Clique em **Escolher imagem** ou arraste uma foto PNG, JPG ou BMP para a página.
 3. A aba **Resultado** mostra a foto com cada objeto marcado e numerado, e o painel mostra a contagem total.
 4. As abas **Cinza**, **Suavizada**, **Binária** e **Morfologia** mostram cada etapa do processamento, para ver em qual delas um resultado errado começou.
